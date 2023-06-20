@@ -4,13 +4,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.ArrayAdapter;
+import android.widget.ListView;
 import android.widget.TextView;
 
-import com.google.android.material.progressindicator.LinearProgressIndicator;
-
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -20,17 +22,26 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Map;
+import java.nio.Buffer;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.HttpsURLConnection;
 
 public class GameListActivity extends AppCompatActivity {
 
-    TextView tempTextView;
+    ListView gamesListView;
+//    ArrayAdapter arrayAdapter;
+    CustomListAdapter adapter;
+    ArrayList<String> mainTitle = new ArrayList<>();
+    ArrayList<Integer> playedTime = new ArrayList<>();
+    ArrayList<String> imgId = new ArrayList<>();
     String apiKey;
-    JSONObject gameListJson;
+    JSONObject gameInfoJson;
     JSONObject playerInfoJson;
-    JSONObject jsonReturnFinal;
+    String username;
+    int timePlayedConstraint;
     ProgressDialog pd;
 
     @Override
@@ -38,24 +49,72 @@ public class GameListActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_game_list);
 
-        Intent intent = getIntent();
         apiKey = getString(R.string.STEAM_API_KEY);
-        Log.i("api-key", apiKey);
-        tempTextView = findViewById(R.id.tempTextView);
+        gamesListView = findViewById(R.id.gamesListView);
+        adapter = new CustomListAdapter(this, mainTitle, playedTime, imgId);
+//        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, games);
+        gamesListView.setAdapter(adapter);
+        timePlayedConstraint = 300;
 
+        try {
+            goFetching();
+        } catch (JSONException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public void goFetching() throws JSONException {
+
+        Intent intent = getIntent();
         String gameListUrl = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/" +
                 "?key="+ apiKey + "&" +
-                "steamid=" + intent.getStringExtra("steamId");
+                "steamid=" + intent.getStringExtra("steamId") + "&" +
+                "include_appinfo=true";
         String playerInfoUrl = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/" +
                 "?key="+ apiKey + "&" +
                 "steamids=" + intent.getStringExtra("steamId");
-        new JsonReturn().execute(playerInfoUrl);
-        playerInfoJson = jsonReturnFinal;
-        new JsonReturn().execute(gameListUrl);
-        gameListJson = jsonReturnFinal;
+
+        try {
+            playerInfoJson = new JsonReturn().execute(playerInfoUrl).get();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            username = playerInfoJson.getJSONObject("response").getJSONArray("players").getJSONObject(0).getString("personaname");
+        }
+        try {
+            gameInfoJson = new JsonReturn().execute(gameListUrl).get();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            mainTitle.clear();
+            playedTime.clear();
+            imgId.clear();
+            JSONArray gameList = gameInfoJson.getJSONObject("response").getJSONArray("games");
+            for(int i = 0; i < gameList.length(); i++){
+                JSONObject object = gameList.getJSONObject(i);
+                String name = object.getString("name");
+                int playtime = object.getInt("playtime_forever");
+                String iconUrlKey = object.getString("img_icon_url");
+                int appId = object.getInt("appid");
+                Boolean playedRecent = false;
+                if(object.getInt("rtime_last_played") > 0){
+                    playedRecent = true;
+                }
+                if(playtime >= timePlayedConstraint) {
+                    mainTitle.add(name);
+                    playedTime.add(playtime);
+                    String imgUrl = "https://media.steampowered.com/steamcommunity/public/images/apps/"+appId+"/"+iconUrlKey+".jpg";
+                    imgId.add(imgUrl);
+                }
+            }
+            Log.i("to update", mainTitle.toString());
+            Log.i("to update", playedTime.toString());
+            Log.i("to update", imgId.toString());
+            adapter.updateCustomList(mainTitle,playedTime,imgId);
+        }
     }
 
-    private class JsonReturn extends AsyncTask<String, String, String>{
+    private class JsonReturn extends AsyncTask<String, Void, JSONObject>{
         protected void onPreExecute() {
             super.onPreExecute();
 
@@ -67,7 +126,7 @@ public class GameListActivity extends AppCompatActivity {
             }
         }
         @Override
-        protected String doInBackground(String... strings) {
+        protected JSONObject doInBackground(String... strings) {
 
             HttpsURLConnection connection = null;
             BufferedReader reader = null;
@@ -86,11 +145,11 @@ public class GameListActivity extends AppCompatActivity {
                 while ((line = reader.readLine()) != null) {
                     buffer.append(line+"\n");
                 }
-                return buffer.toString();
+                JSONObject jsonReturn = new JSONObject(buffer.toString());
+                Log.i("test", jsonReturn.toString());
+                return jsonReturn;
 
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
+            } catch (IOException | JSONException e) {
                 e.printStackTrace();
             } finally {
                 if (connection != null) {
@@ -106,15 +165,10 @@ public class GameListActivity extends AppCompatActivity {
             }
             return null;
         }
-        protected void onPostExecute(String result) {
+        protected void onPostExecute(JSONObject result) {
             super.onPostExecute(result);
             if (pd.isShowing()){
                 pd.dismiss();
-            }
-            try {
-                jsonReturnFinal = new JSONObject(result);
-            } catch (JSONException e) {
-                throw new RuntimeException(e);
             }
         }
     }

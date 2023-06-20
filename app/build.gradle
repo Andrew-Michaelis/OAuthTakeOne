@@ -5,7 +5,6 @@ plugins {
 def localProperties = new Properties()
 localProperties.load(new FileInputStream(rootProject.file("local.properties")))
 def steamApiKey = localProperties.getProperty("STEAM_API_KEY")
-println(steamApiKey)
 android {
     namespace 'com.myappcompany.andy.oauthtakeone'
     compileSdk 33

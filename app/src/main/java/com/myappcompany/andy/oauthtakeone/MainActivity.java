@@ -50,10 +50,7 @@ public class MainActivity extends AppCompatActivity {
                 "openid.realm=https://" + REALM_PARAM + "&" +
                 "openid.return_to=https://" + REALM_PARAM + "/signin/";
 
-        Log.i("url", url);
-
         webView.loadUrl(url);
-        Log.i("post-load", webView.getUrl());
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
