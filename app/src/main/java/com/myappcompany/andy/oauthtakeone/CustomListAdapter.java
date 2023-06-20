@@ -43,7 +43,10 @@ public class CustomListAdapter extends ArrayAdapter<String> {
         TextView titleText = (TextView) rowView.findViewById(R.id.title);
         TextView playedView = (TextView) rowView.findViewById(R.id.subtitle);
 
-        imageView.setImageBitmap(new getBitmapFromURL().execute("https://static.vecteezy.com/system/resources/previews/000/440/213/original/question-mark-vector-icon.jpg").get());
+        URL url = new URL("https://static.vecteezy.com/system/resources/previews/000/440/213/original/question-mark-vector-icon.jpg");
+        Bitmap tempBitty = getBitmapFromURL.execute(String.valueOf(url)).get();
+
+        imageView.setImageBitmap(tempBitty);
         titleText.setText(mainTitle.get(position));
         playedView.setText(String.valueOf(playedTime.get(position)));
 
