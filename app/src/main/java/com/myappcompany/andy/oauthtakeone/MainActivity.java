@@ -4,35 +4,107 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
 import android.view.View;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.text.DateFormat;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.concurrent.ExecutionException;
+
+import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends AppCompatActivity {
 
     final String REALM_PARAM = "Indecision";
+    String fetchDate;
+    String apiKey;
     String userId;
+    String username;
+    ArrayList<String> gamesList = new ArrayList<>();
+    JSONObject gameInfoJson;
+    JSONObject playerInfoJson;
+
+    TextView welcomeUserText;
+    TextView lastSaved;
+    TextView sitsText;
+    LinearLayout buttonsLayout;
+    Button libraryButton;
+    Button randomButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        welcomeUserText = findViewById(R.id.welcomeUserTextView);
+        lastSaved = findViewById(R.id.lastSavedTextView);
+        sitsText = findViewById(R.id.sitsTextView);
+        buttonsLayout = findViewById(R.id.buttonsLayout);
+        libraryButton = findViewById(R.id.libraryButton);
+        libraryButton.setEnabled(false);
+        randomButton = findViewById(R.id.randomGameButton);
+        randomButton.setEnabled(false);
+
+        apiKey = getString(R.string.STEAM_API_KEY);
+
+        Intent intent = getIntent();
+        if(intent.hasExtra("username")){
+            username = intent.getStringExtra("username");
+            userId = intent.getStringExtra("steamId");
+            gamesList = intent.getStringArrayListExtra("gamesList");
+            welcomeUserText.setText("WELCOME "+username+"!");
+            lastSaved.setText("Library last fetched on: "+intent.getStringExtra("fetchDate"));
+            lastSaved.setVisibility(View.VISIBLE);
+            sitsText.setVisibility(View.VISIBLE);
+            int color = com.google.android.material.R.color.mtrl_btn_transparent_bg_color;
+            buttonsLayout.setForeground(new ColorDrawable(ContextCompat.getColor(this, color)));
+            libraryButton.setEnabled(true);
+            randomButton.setEnabled(true);
+        }
+        // for the building of a custom list-view adapter, was a pain, cut for MVP
+//        adapter = new CustomListAdapter(this, mainTitle, playedTime, imgId);
     }
 
     public void onLibrary(View view) {
         Intent intent = new Intent(getApplicationContext(), GameListActivity.class);
-        intent.putExtra("steamId",userId);
+        intent.putExtra("gamesList", gamesList);
+        intent.putExtra("username", username);
         startActivity(intent);
     }
 
-    public void onForward(View view) {
+    public void onRandom(View view) {
+        Intent intent = new Intent(getApplicationContext(), RandomGamesActivity.class);
+        intent.putExtra("gamesList", gamesList);
+        intent.putExtra("username", username);
+        startActivity(intent);
+    }
+
+    public void onSITS(View view) {
         WebView webView = new WebView(this);
         webView.getSettings().setJavaScriptEnabled(true);
         webView.getSettings().setDomStorageEnabled(true);
@@ -69,11 +141,139 @@ public class MainActivity extends AppCompatActivity {
                     userId = userAccountUrl.getLastPathSegment();
 
                     // Do whatever you want with the user's steam id
-                    Intent intent = new Intent(getApplicationContext(), GameListActivity.class);
-                    intent.putExtra("steamId",userId);
-                    startActivity(intent);
+                    try {
+                        goFetching();
+                    } catch (JSONException e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+                        intent.putExtra("steamId", userId);
+                        intent.putExtra("username", username);
+                        intent.putStringArrayListExtra("gamesList", gamesList);
+                        intent.putExtra("fetchDate", fetchDate);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+                        startActivity(intent);
+                    }
+//                    Intent intent = new Intent(getApplicationContext(), GameListActivity.class);
+//                    intent.putExtra("steamId",userId);
+//                    startActivity(intent);
                 }
             }
         });
+    }
+
+    public void goFetching() throws JSONException {
+
+        String gameListUrl = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/" +
+                "?key="+ apiKey + "&" +
+                "steamid=" + userId + "&" +
+                "include_appinfo=true";
+        String playerInfoUrl = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/" +
+                "?key="+ apiKey + "&" +
+                "steamids=" + userId;
+
+        try {
+            playerInfoJson = new JsonReturn().execute(playerInfoUrl).get();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            username = playerInfoJson.getJSONObject("response").getJSONArray("players").getJSONObject(0).getString("personaname");
+            welcomeUserText.setText("Welcome "+username+"!");
+        }
+        try {
+            gameInfoJson = new JsonReturn().execute(gameListUrl).get();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            // for the building of a custom list-view adapter, was a pain, cut for MVP
+//            mainTitle.clear();
+//            playedTime.clear();
+//            imgId.clear();
+            gamesList.clear();
+            JSONArray gameList = gameInfoJson.getJSONObject("response").getJSONArray("games");
+            for(int i = 0; i < gameList.length(); i++){
+                JSONObject object = gameList.getJSONObject(i);
+                String name = object.getString("name");
+                int playtime = object.getInt("playtime_forever");
+                String iconUrlKey = object.getString("img_icon_url");
+                int appId = object.getInt("appid");
+                Boolean playedRecent = false;
+                if(object.getInt("rtime_last_played") > 0){
+                    playedRecent = true;
+                }
+                if(playtime >= 1500){
+                    gamesList.add(name);
+                }
+            }
+            Date date = new Date();
+            DateFormat df = android.text.format.DateFormat.getDateFormat(getApplicationContext());
+            fetchDate = df.format(date);
+            // for the building of a custom list-view adapter, was a pain, cut for MVP
+//            Log.i("to update", mainTitle.toString());
+//            Log.i("to update", playedTime.toString());
+//            Log.i("to update", imgId.toString());
+//            adapter.updateCustomList(mainTitle,playedTime,imgId);
+        }
+    }
+
+    private class JsonReturn extends AsyncTask<String, Void, JSONObject> {
+
+        ProgressDialog pd;
+        protected void onPreExecute() {
+            super.onPreExecute();
+
+            if(pd == null || !pd.isShowing()) {
+                pd = new ProgressDialog(MainActivity.this);
+                pd.setMessage("Please wait");
+                pd.setCancelable(false);
+                pd.show();
+            }
+        }
+        @Override
+        protected JSONObject doInBackground(String... strings) {
+
+            HttpsURLConnection connection = null;
+            BufferedReader reader = null;
+
+            try {
+                URL url = new URL(strings[0]);
+                connection = (HttpsURLConnection) url.openConnection();
+                connection.connect();
+
+                InputStream stream = connection.getInputStream();
+                reader = new BufferedReader(new InputStreamReader(stream));
+
+                StringBuffer buffer = new StringBuffer();
+                String line;
+
+                while ((line = reader.readLine()) != null) {
+                    buffer.append(line+"\n");
+                }
+                JSONObject jsonReturn = new JSONObject(buffer.toString());
+                return jsonReturn;
+
+            } catch (IOException | JSONException e) {
+                e.printStackTrace();
+            } finally {
+                if (connection != null) {
+                    connection.disconnect();
+                }
+                try {
+                    if (reader != null) {
+                        reader.close();
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        }
+        protected void onPostExecute(JSONObject result) {
+            super.onPostExecute(result);
+            if (pd.isShowing()){
+                pd.dismiss();
+            }
+        }
     }
 }

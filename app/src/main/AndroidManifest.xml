@@ -15,6 +15,9 @@
         android:theme="@style/Theme.OAuthTakeOne"
         tools:targetApi="31">
         <activity
+            android:name=".RandomGamesActivity"
+            android:exported="false" />
+        <activity
             android:name=".GameListActivity"
             android:exported="false" />
         <activity

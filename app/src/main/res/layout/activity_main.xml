@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
         android:fontFamily="@font/arimo"
-        android:text="Welcome $USER!"
+        android:text="Welcome!"
         android:textAllCaps="true"
         android:textColor="@color/design_default_color_on_primary"
         android:textSize="16sp"
@@ -46,17 +46,19 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
         android:fontFamily="@font/arimo"
-        android:text="Library last fetched on $date"
         android:textAllCaps="true"
         android:textColor="@color/design_default_color_on_primary"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.5"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/welcomeUserTextView" />
+        app:layout_constraintTop_toBottomOf="@+id/welcomeUserTextView"
+        tools:visibility="gone" />
 
     <LinearLayout
+        android:id="@+id/buttonsLayout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:foreground="#aa2a3136"
         android:orientation="vertical"
         android:showDividers="middle"
         app:layout_constraintBottom_toTopOf="@+id/linearLayout"
@@ -76,6 +78,7 @@
             android:fontFamily="@font/arimo"
             android:insetTop="0dp"
             android:insetBottom="0dp"
+            android:onClick="onLibrary"
             android:paddingLeft="16dp"
             android:paddingTop="6dp"
             android:paddingRight="16dp"
@@ -100,6 +103,7 @@
             android:fontFamily="@font/arimo"
             android:insetTop="0dp"
             android:insetBottom="0dp"
+            android:onClick="onRandom"
             android:paddingLeft="16dp"
             android:paddingTop="6dp"
             android:paddingRight="16dp"
@@ -137,14 +141,15 @@
             android:padding="4dp"
             android:text="Not You?"
             android:textColor="@color/design_default_color_on_primary"
-            android:textSize="20sp" />
+            android:textSize="20sp"
+            android:visibility="gone" />
 
         <ImageView
             android:id="@+id/sitsImageView"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
             android:contentDescription="Sign in Through Steam"
-            android:onClick="onForward"
+            android:onClick="onSITS"
             android:padding="4dp"
             app:srcCompat="@drawable/sits_01" />
 
