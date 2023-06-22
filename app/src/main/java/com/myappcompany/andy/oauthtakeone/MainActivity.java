@@ -5,7 +5,9 @@ import androidx.core.content.ContextCompat;
 
 import android.app.Activity;
 import android.app.ProgressDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
@@ -34,6 +36,7 @@ import java.text.DateFormat;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -41,6 +44,7 @@ import javax.net.ssl.HttpsURLConnection;
 public class MainActivity extends AppCompatActivity {
 
     final String REALM_PARAM = "Indecision";
+    SharedPreferences sharedPreferences;
     String fetchDate;
     String apiKey;
     String userId;
@@ -70,24 +74,26 @@ public class MainActivity extends AppCompatActivity {
         randomButton = findViewById(R.id.randomGameButton);
         randomButton.setEnabled(false);
 
+        sharedPreferences = getApplicationContext().getSharedPreferences("com.myappcompany.andy.oauthtakeone", Context.MODE_PRIVATE);
+
         apiKey = getString(R.string.STEAM_API_KEY);
 
-        Intent intent = getIntent();
-        if(intent.hasExtra("username")){
-            username = intent.getStringExtra("username");
-            userId = intent.getStringExtra("steamId");
-            gamesList = intent.getStringArrayListExtra("gamesList");
+        HashSet set = (HashSet<String>) sharedPreferences.getStringSet("games", null);
+        if(set != null){
+            gamesList = new ArrayList<>(set);
+            username = sharedPreferences.getString("username", null);
+            userId = sharedPreferences.getString("steamId", null);
             welcomeUserText.setText("WELCOME "+username+"!");
-            lastSaved.setText("Library last fetched on: "+intent.getStringExtra("fetchDate"));
+            lastSaved.setText("Library last fetched on: "+sharedPreferences.getString("fetchDate", null));
             lastSaved.setVisibility(View.VISIBLE);
             sitsText.setVisibility(View.VISIBLE);
             int color = com.google.android.material.R.color.mtrl_btn_transparent_bg_color;
             buttonsLayout.setForeground(new ColorDrawable(ContextCompat.getColor(this, color)));
             libraryButton.setEnabled(true);
             randomButton.setEnabled(true);
+
+            Log.i("preferenceSaved", String.valueOf(gamesList));
         }
-        // for the building of a custom list-view adapter, was a pain, cut for MVP
-//        adapter = new CustomListAdapter(this, mainTitle, playedTime, imgId);
     }
 
     public void onLibrary(View view) {
@@ -146,18 +152,21 @@ public class MainActivity extends AppCompatActivity {
                     } catch (JSONException e) {
                         throw new RuntimeException(e);
                     } finally {
-                        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-                        intent.putExtra("steamId", userId);
-                        intent.putExtra("username", username);
-                        intent.putStringArrayListExtra("gamesList", gamesList);
-                        intent.putExtra("fetchDate", fetchDate);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                        startActivity(intent);
+                        HashSet set = new HashSet(gamesList);
+                        sharedPreferences.edit().putStringSet("games", set).apply();
+                        sharedPreferences.edit().putString("steamId", userId).apply();
+                        sharedPreferences.edit().putString("username", username).apply();
+                        sharedPreferences.edit().putString("fetchDate", fetchDate).apply();
+                        activity.recreate();
+//                        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+//                        intent.putExtra("steamId", userId);
+//                        intent.putExtra("username", username);
+//                        intent.putStringArrayListExtra("gamesList", gamesList);
+//                        intent.putExtra("fetchDate", fetchDate);
+//                        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
+//                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//                        startActivity(intent);
                     }
-//                    Intent intent = new Intent(getApplicationContext(), GameListActivity.class);
-//                    intent.putExtra("steamId",userId);
-//                    startActivity(intent);
                 }
             }
         });
@@ -186,10 +195,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
-            // for the building of a custom list-view adapter, was a pain, cut for MVP
-//            mainTitle.clear();
-//            playedTime.clear();
-//            imgId.clear();
             gamesList.clear();
             JSONArray gameList = gameInfoJson.getJSONObject("response").getJSONArray("games");
             for(int i = 0; i < gameList.length(); i++){
@@ -199,21 +204,14 @@ public class MainActivity extends AppCompatActivity {
                 String iconUrlKey = object.getString("img_icon_url");
                 int appId = object.getInt("appid");
                 Boolean playedRecent = false;
-                if(object.getInt("rtime_last_played") > 0){
+                if(object.getInt("rtime_last_played") < 20160){
                     playedRecent = true;
                 }
-                if(playtime >= 1500){
-                    gamesList.add(name);
-                }
+                gamesList.add(name);
             }
             Date date = new Date();
             DateFormat df = android.text.format.DateFormat.getDateFormat(getApplicationContext());
             fetchDate = df.format(date);
-            // for the building of a custom list-view adapter, was a pain, cut for MVP
-//            Log.i("to update", mainTitle.toString());
-//            Log.i("to update", playedTime.toString());
-//            Log.i("to update", imgId.toString());
-//            adapter.updateCustomList(mainTitle,playedTime,imgId);
         }
     }
 

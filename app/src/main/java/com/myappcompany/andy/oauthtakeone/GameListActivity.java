@@ -25,6 +25,7 @@ import java.net.URL;
 import java.nio.Buffer;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.concurrent.ExecutionException;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -35,11 +36,6 @@ public class GameListActivity extends AppCompatActivity {
     ListView gamesListView;
     ArrayAdapter arrayAdapter;
     ArrayList<String> gamesList;
-    // for the building of a custom list-view adapter, was a pain, cut for MVP
-//    CustomListAdapter adapter;
-//    ArrayList<String> mainTitle = new ArrayList<>();
-//    ArrayList<Integer> playedTime = new ArrayList<>();
-//    ArrayList<String> imgId = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,10 +44,11 @@ public class GameListActivity extends AppCompatActivity {
 
         Intent intent = getIntent();
         gamesList = intent.getStringArrayListExtra("gamesList");
+        gamesList.sort(String::compareToIgnoreCase);
         textView = findViewById(R.id.textView);
-        textView.setText(intent.getStringExtra("username"));
+        textView.setText(intent.getStringExtra("username")+"'s Library");
         gamesListView = findViewById(R.id.gamesListView);
-        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, gamesList);
+        arrayAdapter = new ArrayAdapter(this, R.layout.listview_custom, gamesList);
         gamesListView.setAdapter(arrayAdapter);
     }
 }

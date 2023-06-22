@@ -28,11 +28,11 @@ public class RandomGamesActivity extends AppCompatActivity {
         Collections.shuffle(gamesList);
         int k = gamesList.size();
         if(k > 5){
-            gamesList.subList(10, k).clear();
+            gamesList.subList(5, k).clear();
         }
         textView = findViewById(R.id.textView);
         gamesListView = findViewById(R.id.gamesListView);
-        arrayAdapter = new ArrayAdapter(this, android.R.layout.simple_list_item_1, gamesList);
+        arrayAdapter = new ArrayAdapter(this, R.layout.listview_custom, gamesList);
         gamesListView.setAdapter(arrayAdapter);
     }
 }
