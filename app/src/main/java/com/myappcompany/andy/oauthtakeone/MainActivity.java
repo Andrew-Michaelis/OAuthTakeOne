@@ -91,8 +91,6 @@ public class MainActivity extends AppCompatActivity {
             buttonsLayout.setForeground(new ColorDrawable(ContextCompat.getColor(this, color)));
             libraryButton.setEnabled(true);
             randomButton.setEnabled(true);
-
-            Log.i("preferenceSaved", String.valueOf(gamesList));
         }
     }
 
@@ -158,14 +156,6 @@ public class MainActivity extends AppCompatActivity {
                         sharedPreferences.edit().putString("username", username).apply();
                         sharedPreferences.edit().putString("fetchDate", fetchDate).apply();
                         activity.recreate();
-//                        Intent intent = new Intent(getApplicationContext(), MainActivity.class);
-//                        intent.putExtra("steamId", userId);
-//                        intent.putExtra("username", username);
-//                        intent.putStringArrayListExtra("gamesList", gamesList);
-//                        intent.putExtra("fetchDate", fetchDate);
-//                        intent.setFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-//                        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
-//                        startActivity(intent);
                     }
                 }
             }
